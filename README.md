@@ -1,115 +1,123 @@
-# How Web Works
+# 网络是如何工作的
 
-What happens behind the scenes when we type google.com in a browser?
+> 译者: 本文在 google 翻译的基础上进行意译, 并保留了一部分专有名词的英文方便查询其解释
+> 2023.3.18
 
-**Table of Contents**
+当我们在浏览器中输入 google.com 时，幕后发生了什么？
 
-- [Google's 'g' key is pressed](#googles-g-key-is-pressed)
-- [When you hit 'Enter'](#when-you-hit-enter)
-- [Parse the URL](#parse-the-url)
-- [Check HSTS list (deprecated)](#check-hsts-list-deprecated)
-- [DNS lookup](#dns-lookup)
-- [Opening of a socket + TLS handshake](#opening-of-a-socket--tls-handshake)
-- [HTTP protocol](#http-protocol)
-- [HTTP Server Request Handle](#http-server-request-handle)
-- [Server Response](#server-response)
-- [Behind the scenes of the Browser](#behind-the-scenes-of-the-browser)
-- [The browser's high level structure](#the-browsers-high-level-structure)
-- [Rendering Engine](#rendering-engine)
-- [The Main flow](#the-main-flow)
-- [Parsing Basics](#parsing-basics)
-- [DOM Tree](#dom-tree)
-  - [Why is the DOM slow?](#why-is-the-dom-slow)
-- [Render Tree](#render-tree)
-- [Render tree's relation to the DOM tree](#render-trees-relation-to-the-dom-tree)
-- [CSS Parsing](#css-parsing)
-- [Layout](#layout)
-- [Painting](#painting)
-- [Trivia](#trivia)
-  - [The birth of the web](#the-birth-of-the-web)
+**目录**
 
-## Google's 'g' key is pressed
+- ["google"的“g”键被按下](#"google" 的“g”键被按下)
+- [当你按下“Enter”键时](#当你按下“Enter”键时)
+- [解析 URL](#解析 URL)
+- [检查 HSTS 列表（已弃用）](#检查 HSTS 列表（已弃用）)
+- [DNS 查询](#DNS 查询)
+- [打开套接字(socket) + TLS 握手](#打开套接字(socket) + TLS 握手)
+- [HTTP 协议](#HTTP 协议)
+- [HTTP 服务器请求句柄(handle)](#HTTP 服务器请求句柄(handle))
+- [服务器响应](#服务器响应)
+- [浏览器的幕后](#浏览器的幕后)
+- [浏览器的高层结构](#浏览器的高层结构)
+- [渲染(rendering)引擎](#渲染(rendering)引擎)
+- [主要流程](#主要流程)
+- [解析(parsing)基础](#解析(parsing)基础)
+- [DOM 树](#DOM 树)
+   - [为什么 DOM 很慢？](#为什么 DOM 很慢？)
+- [渲染树](#渲染树)
+- [渲染树与 DOM 树的关系](#渲染树与 DOM 树的关系)
+- [CSS 解析](#CSS 解析)
+- [布局(layout)](#布局(layout))
+- [绘图(painting)](#绘图(painting))
+- [冷知识(trivia)](#冷知识(trivia))
+   - [网络的诞生](#网络的诞生)
 
-When you just press "g", the browser receives the event and the entire auto-complete machinery kicks into high gear. Depending on your browser's algorithm and if you are in private/incognito mode or not various suggestions will be presented to you in the dropbox below the URL bar. Most of these algorithms prioritize results based on search history and bookmarks. You are going to type "google.com" so none of it matters, but a lot of code will run before you get there and the suggestions will be refined with each key press. It may even suggest "google.com" before you type it.
+## "google" 的“g”键被按下
 
-## When you hit 'Enter'
+当你按下“g”时，浏览器就会收到事件，整个自动完成机制就会启动。 根据您浏览器的算法以及您是否处于隐私/隐身模式，URL 栏下方的下拉框中会显示各种建议。 大多数这些算法根据搜索历史和书签对结果进行优先排序。 您将输入“google.com”，所以这些都无关紧要，但是在您到这一步之前会运行很多代码，并且每次按键都会改变显示的建议。 它甚至可能会在您键入之前显示“google.com”。
 
-To pick a zero point, let's choose the Enter key on the keyboard hitting the bottom of its range. At this point, an electrical circuit specific to the enter key is closed (either directly or capacitively). This allows a small amount of current to flow into the logic circuitry of the keyboard, which scans the state of each key switch, debounces the electrical noise of the rapid intermittent closure of the switch, and converts it to a keycode integer, in this case 13. The keyboard controller then encodes the keycode for transport to the computer. This is now almost universally over a Universal Serial Bus (USB) or Bluetooth connection.
+## 当你按下“Enter”键时
 
-In the case of the USB keyboard:
-* The keycode generated is stored by internal keyboard circuitry memory in a register called "endpoint".
-* The host USB controller polls that "endpoint" every ~10ms, so it gets the keycode value stored on it.
-* This value goes to the USB SIE (Serial Interface Engine) sent at a maximum speed of 1.5 Mb/s (USB 2.0).
-* This serial signal is then decoded at the computer's host USB controller, and interpreted by the computer's Human Interface Device (HID) universal keyboard device driver.
-* The value of the key is then passed into the operating system's hardware abstraction layer.
+要选择一个出发点，让我们选择键盘上的 Enter 键按下时。 此时，回车键的电路闭合（直接闭合或电容闭合）。 这允许少量电流流入键盘的逻辑电路，该逻辑电路扫描每个按键开关的状态，消除开关快速间歇闭合的电噪声，并将其转换为键码整数 13(译: keycode integer应该就是每个按键会对应一个整数)，键盘控制器然后对键码进行编码。 现在几乎普遍通过通用串行总线 (USB) 或蓝牙连接。
 
-In the case of touch screen keyboards:
-* When the user puts their finger on a modern capacitive touch screen, a tiny amount of current gets transferred to the finger. This completes the circuit through the electrostatic field of the conductive layer and creates a voltage drop at that point on the screen. The screen controller then raises an interrupt reporting the coordinate of the 'click'.
-* Then the mobile OS notifies the current focused application of a click event in one of its GUI elements (which now is the virtual keyboard application buttons).
-* The virtual keyboard can now raise a software interrupt for sending a 'key pressed' message back to the OS.
-* This interrupt notifies the current focused application of a 'key pressed' event.
+如果是 USB 键盘：
 
-## Parse the URL
+* 生成的键码由内部键盘电路存储器存储在称为“端点”(endpoint)的寄存器中。
+* 主机 USB 控制器每 ~10 毫秒轮询一次该“端点”，获取存储在其上的键码值。
+* 该值以最高 1.5 Mb/s (USB 2.0) 的速度发送到 USB SIE（串行接口引擎 serial interface engine）。
+* 该串行信号随后在计算机的主机 USB 控制器上解码，并由计算机的人机接口设备 (HID, human interface device) 通用键盘设备驱动进行解释。
+* 然后将按键的值传递到操作系统的硬件抽象层。
 
-The browser now has the following information contained in the URL (Uniform Resource Locator):
-* Protocol "http": Use 'Hyper Text Transfer Protocol'
-* Resource "/": Retrieve main (index) page
+对于触摸屏键盘：
 
-When no protocol or valid domain name is given the browser proceeds to feed the text given in the address box to the browser's default web search engine.
+* 当用户将手指放在现代电容式触摸屏上时，少量电流会传输到手指。 这通过导电层的静电场导通了电路，并在屏幕上的那个点产生了电压降。 屏幕控制器然后引发中断报告“点击”的坐标。
+* 然后移动操作系统通知当前的应用程序在这个 GUI 元素中的单击事件。（现在是虚拟键盘应用程序按钮）
+* 虚拟键盘现在可以引发软件中断，用于将“按键按下”消息发送回操作系统。
+* 此中断将“按键按下”事件通知当前聚焦的应用程序。
 
-## Check HSTS list (deprecated)
+## 解析 URL
 
-* ~The browser checks its "preloaded HSTS (HTTP Strict Transport Security)" list. This is a list of websites that have requested to be contacted via HTTPS only.~
-* ~If the website is in the list, the browser sends its request via HTTPS instead of HTTP. Otherwise, the initial request is sent via HTTP.~
+浏览器在 URL（统一资源定位符）中包含以下信息：
 
-Note: The website can still use the HSTS policy without being in the HSTS list. The first HTTP request to the website by a user will receive a response requesting that the user only send HTTPS requests. However, this single HTTP request could potentially leave the user vulnerable to a [downgrade attack](http://www.yourdictionary.com/downgrade-attack), which is why the HSTS list is included in modern web browsers.
+- 协议“http”：使用“超文本传输协议”
 
-Modern browsers requests https first
+* 资源“/”：检索主（索引）页面
+
+当没有给出协议或有效域名时，浏览器继续将地址框中给出的文本提供给浏览器的默认网络搜索引擎。
+
+## 检查 HSTS 列表（已弃用）
+
+* ~浏览器检查其“预加载的 HSTS（HTTP 严格传输安全）”列表。 这是已请求仅通过 HTTPS 联系的网站列表。~
+* ~如果网站在列表中，浏览器将通过 HTTPS 而不是 HTTP 发送请求。 否则，初始请求通过HTTP发送。~
+
+注意：该网站不在 HSTS 列表中，仍然可以使用 HSTS 策略。 用户对网站的第一个 HTTP 请求将收到一个响应，要求用户只发送 HTTPS 请求。 然而，这个单一的 HTTP 请求可能会让用户容易受到[降级攻击](http://www.yourdictionary.com/downgrade-attack)，这就是现代网络浏览器中包含 HSTS 列表的原因。
+
+现代浏览器首先请求 https
 
 
-## DNS lookup
+## DNS 查询
 
-The browser tries to figure out the IP address for the entered domain. The DNS lookup proceeds as follows:
+浏览器试图找出输入域的 IP 地址。 DNS 查找过程如下：
 
-* **Browser cache:** The browser caches DNS records for some time. Interestingly, the OS does not tell the browser the time-to-live for each DNS record, and so the browser caches them for a fixed duration (varies between browsers, 2 – 30 minutes).
-* **OS cache:** If the browser cache does not contain the desired record, the browser makes a system call (gethostbyname in Windows). The OS has its own cache.
-* **Router cache:** The request continues on to your router, which typically has its own DNS cache.
-* **ISP DNS cache:** The next place checked is the cache ISP’s DNS server. With a cache, naturally.
-* **Recursive search:** Your ISP’s DNS server begins a recursive search, from the root nameserver, through the .com top-level nameserver, to Google’s nameserver. Normally, the DNS server will have names of the .com nameservers in cache, and so a hit to the root nameserver will not be necessary.
+* **浏览器缓存：**浏览器缓存 DNS 记录一段时间。 有趣的是，操作系统不会告诉浏览器每条 DNS 记录的生存时间，因此浏览器会将它们缓存一段固定的时间（因浏览器而异，2 - 30 分钟）。
+* **OS 缓存：** 如果浏览器缓存不包含所需的记录，浏览器将进行系统调用（Windows 中的 gethostbyname）。 操作系统有自己的缓存。
+* **路由器缓存：**请求继续到您的路由器，路由器通常有自己的 DNS 缓存。
+* **ISP DNS 缓存：** 下一个检查的地方是 ISP 的 DNS 服务器的缓存。 
+* **递归搜索：**您的 ISP 的 DNS 服务器开始递归搜索，从根名称服务器，通过 .com 顶级名称服务器，到 Google 的名称服务器。 通常，DNS 服务器缓存中包含 .com 域名服务器的名称，因此无需访问根域名服务器。
 
-Here is a diagram of what a recursive DNS search looks like:
+这是递归 DNS 搜索的示意图：
 
 <p align="center">
   <img src="img/Example_of_an_iterative_DNS_resolver.svg" alt="Recursive DNS search"/>
 </p>
 
-One worrying thing about DNS is that the entire domain like wikipedia.org or facebook.com seems to map to a single IP address. Fortunately, there are ways of mitigating the bottleneck:
 
-* **Round-robin DNS** is a solution where the DNS lookup returns multiple IP addresses, rather than just one. For example, facebook.com actually maps to four IP addresses.
-* **Load-balancer** is the piece of hardware that listens on a particular IP address and forwards the requests to other servers. Major sites will typically use expensive high-performance load balancers.
-* **Geographic DNS** improves scalability by mapping a domain name to different IP addresses, depending on the client’s geographic location. This is great for hosting static content so that different servers don’t have to update shared state.
-* **Anycast** is a routing technique where a single IP address maps to multiple physical servers. Unfortunately, anycast does not fit well with TCP and is rarely used in that scenario.
+关于 DNS 的一个令人担忧的事情是，整个域（如 wikipedia.org 或 facebook.com）似乎映射到一个单一的 IP 地址。 幸运的是，有一些方法可以缓解瓶颈：
 
-Most of the DNS servers themselves use anycast to achieve high availability and low latency of the DNS lookups. Users of an anycast service (DNS is an excellent example) will always connect to the 'closest' (from a routing protocol perspective) DNS server. This reduces latency, as well as providing a level of load-balancing (assuming that your consumers are evenly distributed around your network).
+* **轮询(round-robin) DNS** 是一种解决方案，其中 DNS 查找返回多个 IP 地址，而不仅仅是一个。 例如，facebook.com 实际上映射到四个 IP 地址。
+* **负载均衡器** 是一种硬件，它侦听特定的 IP 地址并将请求转发到其他服务器。 主要站点通常会使用昂贵的高性能负载平衡器。
+* **地理 DNS** 通过将域名映射到不同的 IP 地址来提高可扩展性，具体取决于客户端的地理位置。 这对于托管静态内容非常有用，这样不同的服务器就不必更新共享状态。
+* **任播(anycast)** 是一种路由技术，其中单个 IP 地址映射到多个物理服务器。 遗憾的是，任播与 TCP 不相适应，并且很少用于这种情况。
 
-## Opening of a socket + TLS handshake
+大多数 DNS 服务器本身使用任播来实现 DNS 查找的高可用性和低延迟。 任播服务（DNS 是一个很好的例子）的用户将始终连接到“最近的”（从路由协议的角度来看）DNS 服务器。 这减少了延迟，并提供了一定程度的负载平衡（假设您的消费者均匀分布在您的网络中）。
 
-* Once the browser receives the IP address of the destination server, it takes that and the given port number from the URL (the HTTP protocol defaults to port 80, and HTTPS to port 443), and makes a call to the system library function named socket and requests a [TCP](http://www.webopedia.com/TERM/T/TCP.html) [socket](http://www.webopedia.com/TERM/S/socket.html) stream.
-* The client computer sends a ClientHello message to the server with its TLS version, list of cipher algorithms and compression methods available.
-* The server replies with a ServerHello message to the client with the TLS version, selected cipher, selected compression methods and the server's public certificate signed by a CA (Certificate Authority). The certificate contains a public key that will be used by the client to encrypt the rest of the handshake until a symmetric key can be agreed upon.
-* The client verifies the server digital certificate against its list of trusted CAs. If trust can be established based on the CA, the client generates a string of pseudo-random bytes and encrypts this with the server's public key. These random bytes can be used to determine the symmetric key.
-* The server decrypts the random bytes using its private key and uses these bytes to generate its own copy of the symmetric master key.
-* The client sends a Finished message to the server, encrypting a hash of the transmission up to this point with the symmetric key.
-* The server generates its own hash, and then decrypts the client-sent hash to verify that it matches. If it does, it sends its own Finished message to the client, also encrypted with the symmetric key.
-* From now on the TLS session transmits the application (HTTP) data encrypted with the agreed symmetric key.
+## 打开套接字(socket) + TLS 握手
 
-## HTTP protocol
+* 一旦浏览器接收到目标服务器的 IP 地址，它就用它和给定的端口号（HTTP 协议默认为端口 80，HTTPS 为端口 443），并调用名为socket 的系统库函数并请求 [TCP](http://www.webopedia.com/TERM/T/TCP.html) [套接字](http://www.webopedia.com/TERM/S/socket.html) 流。
+* 客户端计算机向服务器发送一条 ClientHello 消息，其中包含其 TLS(Transport Layer Security) 版本、可用的密码算法和压缩方法列表。
+* 服务器向客户端回复一条 ServerHello 消息，其中包含 TLS 版本、选择的密码、选择的压缩方法和由 CA（证书颁发机构 Certificate Authority）签署的公共证书。 该证书包含一个公钥，客户端将使用该公钥加密握手的其余部分，直到可以就对称密钥达成一致。
+* 客户端根据其受信任的 CA 列表验证服务器数字证书。 如果可以基于 CA 建立信任，则客户端生成一串伪随机字节并使用服务器的公钥对其进行加密。 这些随机字节可用于确定对称密钥。
+* 服务器使用其私钥解密随机字节，并使用这些字节生成自己的对称主密钥副本。
+* 客户端向服务器发送 Finished 消息，使用对称密钥加密传输的哈希值。
+* 服务器生成自己的哈希，然后解密客户端发送的哈希以验证它是否匹配。 如果是，它将自己的 Finished 消息发送给客户端，该消息也使用对称密钥加密。
+* 从现在开始，TLS 会话传输使用约定的对称密钥加密的应用程序 (HTTP) 数据。
 
-You can be pretty sure that dynamic sites such as Facebook/Gmail will not be served from the browser cache because dynamic pages expire either very quickly or immediately (expiry date set to past).
+## HTTP 协议
 
-If the web browser used was written by Google, instead of sending an HTTP request to retrieve the page, it will send a request to try and negotiate with the server an "upgrade" from HTTP to the SPDY protocol. Note that SPDY is being deprecated in favor of HTTP/2 in latest versions of Chrome.
+您可以非常确定不会从浏览器缓存中找到诸如 Facebook/Gmail 之类的动态站点，因为动态页面会很快或立即过期（过期日期设置为过去）。
 
-```txt
+如果使用的 Web 浏览器是由 Google 编写的，那么它不会发送 HTTP 请求来检索页面，而是发送请求以尝试与服务器协商从 HTTP 到 SPDY 协议的“升级”。 请注意，在最新版本的 Chrome 中，SPDY 已被弃用，取而代之的是 HTTP/2。
+
+```http
 GET http://www.google.com/ HTTP/1.1
 Accept: application/x-ms-application, image/jpeg, application/xaml+xml, [...]
 User-Agent: Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; WOW64; [...]
@@ -119,65 +127,61 @@ Host: google.com
 Cookie: datr=1265876274-[...]; locale=en_US; lsd=WW[...]; c_user=2101[...]
 ```
 
-The GET request names the URL to fetch: “[http://www.google.com/](http://www.google.com/)”. The browser identifies itself (User-Agent header), and states what types of responses it will accept (Accept and Accept-Encoding headers). The Connection header asks the server to keep the TCP connection open for further requests.
+GET 请求指定要获取的 URL：“[http://www.google.com/](http://www.google.com/)”。 浏览器标识自己（User-Agent header），并说明它将接受什么类型的响应（Accept 和 Accept-Encoding header）。 Connection header 要求服务器保持 TCP 连接打开以供进一步请求。
 
-The request also contains the cookies that the browser has for this domain. As you probably already know, cookies are key-value pairs that track the state of a web site in between different page requests. And so the cookies store the name of the logged-in user, a secret number that was assigned to the user by the server, some of user’s settings, etc. The cookies will be stored in a text file on the client, and sent to the server with every request.
+该请求还包含浏览器对该域的 cookie。 您可能已经知道，cookie 是键值对，用于在不同的页面请求之间跟踪网站的状态。 因此 cookie 存储登录用户的名称、服务器分配给用户的秘密数字、用户的一些设置等。cookie 将存储在客户端的文本文件中，并发送到每个请求的服务器。
 
-HTTP/1.1 defines the "close" connection option for the sender to signal that the connection will be closed after completion of the response. For example, Connection: close.
+HTTP/1.1 为发送方定义了“close”连接选项，以表示连接将在响应完成后关闭。 例如，`Connection: close`.
 
-After sending the request and headers, the web browser sends a single blank newline to the server indicating that the content of the request is done. The server responds with a response code denoting the status of the request and responds with a response of the form: **200 OK [response headers]**
+发送请求和 header 后，Web 浏览器向服务器发送一个空白换行符，表示请求内容已完成。 服务器以表示请求状态的响应代码进行响应，并以以下形式的响应进行响应：**200 OK [response headers]**
 
-Followed by a single newline, and then sends a payload of the HTML content of www.google.com. The server may then either close the connection, or if headers sent by the client requested it, keep the connection open to be reused for further requests.
+接着是一个换行符，然后发送 www.google.com 的 HTML 内容负载。 然后服务器可以关闭连接，或者如果客户端发送的 header 要求，则保持连接打开以供进一步请求重用。
 
-If the HTTP headers sent by the web browser included sufficient information for the web server to determine if the version of the file cached by the web browser has been unmodified since the last retrieval (ie. if the web browser included an ETag header), it may instead respond with a request of the form: **304 Not Modified [response headers]** and no payload, and the web browser instead retrieves the HTML from its cache.
+如果 Web 浏览器发送的 HTTP header 包含足够的信息，以便 Web 服务器确定 Web 浏览器缓存的文件版本自上次检索以来是否未被修改（即，如果 Web 浏览器包含 ETag header），则它可能会以以下形式的请求进行响应：**304 Not Modified [response headers]** 并且没有有效负载，并且 Web 浏览器会从其缓存中检索 HTML。
 
-After parsing the HTML, the web browser (and server) repeats this process for every resource (image, CSS, favicon.ico, etc) referenced by the HTML page, except instead of GET / HTTP/1.1 the request will be **GET /$(URL relative to www.google.com) HTTP/1.1.**
+解析 HTML 后，Web 浏览器（和服务器）对 HTML 页面引用的每个资源（图像、CSS、favicon.ico 等）重复此过程，除了 GET / HTTP/1.1 以外，请求将是 **GET /$(URL relative to www.google.com) HTTP/1.1.**
 
-If the HTML referenced a resource on a different domain than www.google.com, the web browser goes back to the steps involved in resolving the other domain, and follows all steps up to this point for that domain. The Host header in the request will be set to the appropriate server name instead of google.com.
+如果 HTML 引用了与 www.google.com 不同的域上的资源，Web 浏览器将返回到解析其他域所涉及的步骤，并执行该域的所有步骤。 请求中的主机header将设置为适当的服务器名称，而不是 google.com。
 
-**Gotcha:**
-* The trailing slash in the URL “[http://facebook.com/](http://facebook.com/)” is important. In this case, the browser can safely add the slash. For URLs of the form http://example.com/folderOrFile, the browser cannot automatically add a slash, because it is not clear whether folderOrFile is a folder or a file. In such cases, the browser will visit the URL without the slash, and the server will respond with a redirect, resulting in an unnecessary roundtrip.
-* The server might respond with a 301 Moved Permanently response to tell the browser to go to “[http://www.google.com/](http://www.google.com/)” instead of “[http://google.com/](http://google.com/)”. There are interesting reasons why the server insists on the redirect instead of immediately responding with the web page that the user wants to see.
-One reason has to do with search engine rankings. See, if there are two URLs for the same page, say http://www.vasanth.com/ and http://vasanth.com/, search engines may consider them to be two different sites, each with fewer incoming links and thus a lower ranking. Search engines understand permanent redirects (301), and will combine the incoming links from both sources into a single ranking.
-Also, multiple URLs for the same content are not cache-friendly. When a piece of content has multiple names, it will potentially appear multiple times in caches.
+**陷阱：**
 
-**Note:**
-HTTP response starts with the returned status code from the server. Following is a very brief summary of what a status code denotes:
-  * 1xx indicates an informational message only
-  * 2xx indicates success of some kind
-  * 3xx redirects the client to another URL
-  * 4xx indicates an error on the client's part
-  * 5xx indicates an error on the server's part
+* URL“[http://facebook.com/](http://facebook.com/)”中的尾部斜杠很重要。 在这种情况下，浏览器可以安全地添加斜线。 对于http://example.com/folderOrFile 形式的URL，浏览器无法自动添加斜杠，因为无法明确folderOrFile 是文件夹还是文件。 在这种情况下，浏览器将访问不带斜杠的 URL，服务器将以重定向响应，从而导致不必要的往返。
+* 服务器可能会响应 301 Moved Permanently 响应，告诉浏览器转到“[http://www.google.com/](http://www.google.com/)”而不是“[http://google.com/](http://google.com/)”。 服务器坚持重定向而不是立即响应用户想要查看的网页的原因很有趣。
+   原因之一与搜索引擎排名有关。 如果同一个页面有两个 URL，比如 http://www.vasanth.com/ 和 http://vasanth.com/，搜索引擎可能会认为它们是两个不同的站点，每个站点都有较少的传入链接, 因此排名较低。 搜索引擎理解永久重定向 (301)，并将来自两个来源的传入链接合并到一个排名(ranking)中。
+   此外，同一内容的多个 URL 不缓存友好。 当一段内容有多个名称时，它可能会在缓存中出现多次。
 
-## HTTP Server Request Handle
+**注意：**
+HTTP 响应以服务器返回的状态代码开始。 以下是状态代码表示的非常简短的摘要：
 
-The HTTPD (HTTP Daemon) server is the one handling the requests/responses on the server side. The most common HTTPD servers are Apache or nginx for Linux and IIS for Windows.
+   * 1xx 仅表示信息性消息
+   * 2xx 表示某种成功
+   * 3xx 将客户端重定向到另一个 URL
+   * 4xx 表示客户端错误
+   * 5xx 表示服务器端出错
 
-* The HTTPD (HTTP Daemon) receives the request.
+## HTTP 服务器请求句柄(handle)
 
-* The server breaks down the request to the following parameters:
-    * HTTP Request Method (either GET, POST, HEAD, PUT and DELETE). In the case of a URL entered directly into the address bar, this will be GET.
-    * Domain, in this case - google.com.
-    * Requested path/page, in this case - / (as no specific path/page was requested, / is the default path).
-    * The server verifies that there is a Virtual Host configured on the server that corresponds with google.com.
+HTTPD（HTTP 守护进程）服务器是在服务器端处理请求/响应的服务器。 最常见的 HTTPD 服务器是用于 Linux 的 Apache 或 nginx 和用于 Windows 的 IIS。
 
-* The server verifies that google.com can accept GET requests.
+* HTTPD（HTTP 守护进程）接收请求。
+* 服务器将请求分解为以下参数：
+   * HTTP 请求方法（GET、POST、HEAD、PUT 和 DELETE）。 对于直接在地址栏中输入的 URL，这将是 GET。
+   * 域(domain)，在本例中为 google.com。
+   * 请求的路径/页面，在本例中为 `/` (即没有特定的路径/页面被请求, `/`是默认路径
+   * 服务器验证在服务器上配置了与google.com对应的虚拟主机。
+* 服务器验证 google.com 可以接受 GET 请求。
+* 服务器验证是否允许客户端使用此方法（通过IP、身份验证等）。
+* 如果服务器安装了重写模块（如 Apache 的 mod_rewrite 或 IIS 的 URL Rewrite），它会尝试将请求与配置的规则之一相匹配。 如果找到匹配规则，服务器将使用该规则重写请求。
+* 服务器去拉取与请求对应的内容，在我们的例子中它会回退到索引文件，因为“/”是主文件（有些情况可以覆盖这个，但这是最常见的方法）。
+* 服务器根据请求处理器(handler)解析文件。 请求处理器是一个程序（在 ASP.NET中, PHP、Ruby 等），它读取请求并为响应生成 HTML。 如果 Google 在 PHP 上运行，则服务器使用 PHP 来解释索引文件，并将输出流式传输到客户端。
 
-* The server verifies that the client is allowed to use this method (by IP, authentication, etc.).
+注意：每个动态网站面临的一个有趣的困难是如何存储数据。 较小的站点通常只有一个 SQL 数据库来存储它们的数据，但是存储大量数据和/或有很多访问者的站点必须找到一种方法将数据库拆分到多台机器上。 解决方案包括分片(sharding)（根据主键将表拆分到多个数据库）、重复副本, 和使用一致性语义较弱的简化数据库。
 
-* If the server has a rewrite module installed (like mod_rewrite for Apache or URL Rewrite for IIS), it tries to match the request against one of the configured rules. If a matching rule is found, the server uses that rule to rewrite the request.
+## 服务器响应
 
-* The server goes to pull the content that corresponds with the request, in our case it will fall back to the index file, as "/" is the main file (some cases can override this, but this is the most common method).
+这是服务器生成并发回的响应：
 
-* The server parses the file according to the request handler. A request handler is a program (in ASP.NET, PHP, Ruby, …) that reads the request and generates the HTML for the response. If Google is running on PHP, the server uses PHP to interpret the index file, and streams the output to the client.
-
-Note: One interesting difficulty that every dynamic website faces is how to store data. Smaller sites will often have a single SQL database to store their data, but sites that store a large amount of data and/or have many visitors have to find a way to split the database across multiple machines. Solutions include sharding (splitting up a table across multiple databases based on the primary key), replication, and usage of simplified databases with weakened consistency semantics.
-
-## Server Response
-
-Here is the response that the server generated and sent back:
-
-```txt
+```http
 HTTP/1.1 200 OK
 Cache-Control: private, no-store, no-cache, must-revalidate, post-check=0,
     pre-check=0
@@ -194,159 +198,167 @@ Date: Fri, 12 Feb 2010 09:05:55 GMT
 ��������T�n�@����[...]
 ```
 
-The entire response is 36 kB, the bulk of them in the byte blob at the end that I trimmed.
+整个响应是 36 kB，其中大部分在我修剪的末尾中。
 
-The **Content-Encoding** header tells the browser that the response body is compressed using the gzip algorithm. After decompressing the blob, you’ll see the HTML you’d expect:
+**Content-Encoding** header告诉浏览器响应主体是使用 gzip 算法压缩的。 解压缩 blob 后，您将看到您期望的 HTML：
 
 ```html
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-      "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
-      lang="en" id="google" class=" no_js">
-<head>
+       "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-cn"
+       lang="zh-cn" id="google" class="no_js">
+<头>
 <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
 <meta http-equiv="Content-language" content="en" />
 ...
 ```
 
-Notice the header that sets Content-Type to text/html. The header instructs the browser to render the response content as HTML, instead of say downloading it as a file. The browser will use the header to decide how to interpret the response, but will consider other factors as well, such as the extension of the URL.
+请注意将 Content-Type 设置为 text/html 的header。 header指示浏览器将响应内容呈现为 HTML，而不是说将其下载为文件。 浏览器将使用header来决定如何解释响应，但也会考虑其他因素，例如 URL 的扩展名。
 
-## Behind the scenes of the Browser
+## 浏览器的幕后
 
-Once the server supplies the resources (HTML, CSS, JS, images, etc.) to the browser it undergoes the below process:
-* Parsing - HTML, CSS, JS
-* Rendering - Construct DOM Tree → Render Tree → Layout of Render Tree → Painting the render tree
+一旦服务器向浏览器提供资源（HTML、CSS、JS、图像等），它就会经历以下过程：
 
-## The browser's high level structure
+* 解析 - HTML、CSS、JS
+* 渲染 - 构建 DOM 树 → 渲染树 → 渲染树布局 → 绘制渲染树
 
-1. **User Interface:** Includes the address bar, back/forward button, bookmarking menu, etc. Every part of the browser display except the window where you see the requested page.
+## 浏览器的高层结构
 
-2. **Browser Engine:** [Marshals](http://stackoverflow.com/a/5600887/1672655) actions between the UI and the rendering engine.
+1. **用户界面：** 包括地址栏、后退/前进按钮、书签菜单等。除了您看到请求页面的窗口外，浏览器显示的每个部分。
 
-3. **Rendering Engine:** Responsible for displaying requested content. For eg. the rendering engine parses HTML and CSS, and displays the parsed content on the screen.
+2. **浏览器引擎：** UI 和渲染引擎之间的序列化([Marshals](http://stackoverflow.com/a/5600887/1672655))操作。
 
-4. **Networking:** For network calls such as HTTP requests, using different implementations for different platforms (behind a platform-independent interface).
+3. **渲染引擎：**负责显示请求的内容。 例如。 渲染引擎解析HTML和CSS，并将解析后的内容显示在屏幕上。
 
-5. **UI Backend:** Used for drawing basic widgets like combo boxes and windows. This backend exposes a generic interface that is not platform specific. Underneath it uses operating system user interface methods.
+4. **网络：**对于HTTP请求等网络调用，针对不同的平台使用不同的实现（在平台无关的接口后面）。
 
-6. **JavaScript Engine:** Interpreter used to parse and execute JavaScript code.
+5. **UI 后端：** 用于绘制组合框和窗口等基本小部件。 该后端公开了一个非特定于平台的通用接口。 在它下面使用操作系统用户界面方法。
 
-7. **Data Storage:** This is a persistence layer. The browser may need to save data locally, such as cookies. Browsers also support storage mechanisms such as [localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage), [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB) and [FileSystem](https://developer.chrome.com/apps/fileSystem).
+6. **JavaScript 引擎：** 用于解析和执行 JavaScript 代码的解释器。
+
+7. **数据存储：**这是一个持久层。 浏览器可能需要在本地保存数据，例如 cookie。 浏览器还支持存储机制，例如 [localStorage](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage)、[IndexedDB](https://developer.mozilla.org/ en-US/docs/Web/API/IndexedDB_API/Using_IndexedDB) 和 [文件系统](https://developer.chrome.com/apps/fileSystem)。
 
 <p align="center">
   <img src="img/layers.png" alt="Browser Components"/>
 </p>
 
-Let’s start, with the simplest possible case: a plain HTML page with some text and a single image. What does the browser need to do to process this simple page?
 
-1. **Conversion:** the browser reads the raw bytes of the HTML off the disk or network and translates them to individual characters based on specified encoding of the file (e.g. UTF-8).
+让我们从最简单的情况开始：一个带有一些文本和一张图片的纯 HTML 页面。 浏览器需要做什么来处理这个简单的页面？
 
-2. **Tokenizing:** the browser converts strings of characters into distinct tokens specified by the W3C HTML5 standard - e.g. “<html>”, “<body>” and other strings within the “angle brackets”. Each token has a special meaning and a set of rules.
+1. **转换：**浏览器从磁盘或网络读取 HTML 的原始字节并将它们转换为单独的基于文件指定编码的字符（例如 UTF-8）。
 
-3. **Lexing:** the emitted tokens are converted into “objects” which define their properties and rules.
+2. **标记化(tokenizing)：**浏览器将字符串转换为 W3C HTML5 标准指定的不同标记 - 例如 “<html>”、“<body>”等“尖括号”内的字符串。 每个标记都有特殊的含义和一组规则。
 
-4. **DOM construction:** Finally, because the HTML markup defines relationships between different tags (some tags are contained within tags) the created objects are linked in a tree data structure that also captures the parent-child relationships defined in the original markup: HTML object is a parent of the body object, the body is a parent of the paragraph object, and so on.
+3. **词法分析(Lexing)：**发出的标记被转换为定义其属性和规则的“对象”。
 
-<p align="center">
-  <img src="img/full-process.png" alt="DOM Construction Process"/>
-</p>
+4. **DOM 构造：** 最后，由于 HTML 标记定义了不同标签之间的关系（一些标签包含在标签中），因此创建的对象链接在树数据结构中，该结构还捕获原始文件标记中定义的父子关系 ：HTML 对象是主体对象的父对象，主体是段落对象的父对象，等等。
 
-The final output of this entire process is the Document Object Model, or the “DOM” of our simple page, which the browser uses for all further processing of the page.
+   <p align="center">
+     <img src="img/full-process.png" alt="DOM Construction Process"/>
+   </p>
 
-Every time the browser has to process HTML markup it has to step through all of the steps above: convert bytes to characters, identify tokens, convert tokens to nodes, and build the DOM tree. This entire process can take some time, especially if we have a large amount of HTML to process.
 
-<p align="center">
-  <img src="img/dom-timeline.png" alt="Tracing DOM construction in DevTools"/>
-</p>
+   整个过程的最终输出是文档对象模型，或者我们简单页面的“DOM”，浏览器使用它来对页面进行所有进一步处理。
 
-If you open up Chrome DevTools and record a timeline while the page is loaded, you can see the actual time taken to perform this step — in the example above, it took us ~5ms to convert a chunk of HTML bytes into a DOM tree. Of course, if the page was larger, as most pages are, this process might take significantly longer. You will see in our future sections on creating smooth animations that this can easily become your bottleneck if the browser has to process large amounts of HTML.
+   每次浏览器必须处理 HTML 标记时，它必须逐步完成上述所有步骤：将字节转换为字符、识别标记、将标记转换为节点以及构建 DOM 树。 整个过程可能需要一些时间，尤其是当我们要处理大量 HTML 时。
 
-## Rendering Engine
+   <p align="center">
+     <img src="img/dom-timeline.png" alt="Tracing DOM construction in DevTools"/>
+   </p>
 
-A rendering engine is a software component that takes marked up content (such as HTML, XML, image files, etc.) and formatting information (such as CSS, XSL, etc.) and displays the formatted content on the screen.
 
-|Browser           |Engine                       |
-|----------------- |:---------------------------:|
-|Chrome            | Blink (a fork of WebKit)    |
-|Firefox           | Gecko                       |
-|Safari            | Webkit                      |
-|Opera             | Blink (Presto if < v15)     |
-|Internet Explorer | Trident                     |
-|Edge              | Blink (EdgeHTML if < v79)   |
+   如果您打开 Chrome DevTools 并在页面加载时记录时间线，您可以看到执行此步骤所花费的实际时间——在上面的示例中，我们花了大约 5 毫秒将一大块 HTML 字节转换为 DOM 树。 当然，如果页面较大（大多数页面都是这样），则此过程可能需要更长的时间。 在我们以后关于创建流畅动画的章节中，您将看到如果浏览器必须处理大量 HTML，这很容易成为您的瓶颈。
 
-WebKit is an open source rendering engine which started as an engine for the Linux platform and was modified by Apple to support Mac and Windows.
+## 渲染(rendering)引擎
 
-The rendering engine is single threaded. Almost everything, except network operations, happens in a single thread. In Firefox and Safari this is the main thread of the browser. In Chrome it's the tab process main thread.
-Network operations can be performed by several parallel threads. The number of parallel connections is limited (usually 6-13 connections per hostname).
+渲染引擎是一个软件组件，它获取标记的内容（如 HTML、XML、图像文件等）和格式化信息（如 CSS、XSL 等），并将格式化后的内容显示在屏幕上。
 
-The browser main thread is an event loop. It's an infinite loop that keeps the process alive. It waits for events (like layout and paint events) and processes them.
+| Browser           |          Engine           |
+| ----------------- | :-----------------------: |
+| Chrome            | Blink (a fork of WebKit)  |
+| Firefox           |           Gecko           |
+| Safari            |          Webkit           |
+| Opera             |  Blink (Presto if < v15)  |
+| Internet Explorer |          Trident          |
+| Edge              | Blink (EdgeHTML if < v79) |
 
-Note: Browsers such as Chrome run multiple instances of the rendering engine: one for each tab. Each tab runs in a separate process.
+WebKit 是一个开源渲染引擎，最初是作为 Linux 平台的引擎，后来被 Apple 修改以支持 Mac 和 Windows。
 
-## The Main flow
+渲染引擎是单线程的。 除了网络操作之外，几乎所有的事情都发生在一个线程中。 在 Firefox 和 Safari 中，这是浏览器的主线程。 在 Chrome 中，它是选项卡进程主线程。
+网络操作可以由多个并行线程执行。 并行连接的数量是有限的（通常每个主机名有 6-13 个连接）。
 
-The rendering engine will start getting the contents of the requested document from the networking layer. This is usually done in 8KB chunks.
+浏览器主线程是一个事件循环。 这是一个无限循环，使进程保持活动状态。 它等待事件（如布局和绘制事件）并处理它们。
 
-After that the basic flow of the rendering engine is:
+注意：Chrome 等浏览器运行渲染引擎的多个实例：每个选项卡一个。 每个选项卡都在单独的进程中运行。
+
+## 主要流程
+
+渲染引擎将开始从网络层获取请求文档的内容。 这通常以 8KB 块的形式完成。
+
+之后渲染引擎的基本流程是：
 
 <p align="center">
   <img src="img/flow.png" alt="Rendering engine basic flow"/>
 </p>
 
-The rendering engine will start parsing the HTML document and convert elements to [DOM](http://domenlightenment.com/) nodes in a tree called the **"content tree"**.
 
-The engine will parse the style data, both in external CSS files and in style elements. Styling information together with visual instructions in the HTML will be used to create another tree: the **render tree**.
-The render tree contains rectangles with visual attributes like color and dimensions. The rectangles are in the right order to be displayed on the screen.
+呈现引擎将开始解析 HTML 文档并将元素转换为称为 **“内容树”** 的树中的 [DOM](http://domenlightenment.com/) 节点。
 
-After the construction of the render tree it goes through a **"layout"** process. This means giving each node the exact coordinates where it should appear on the screen.
+引擎将解析样式数据，包括外部 CSS 文件和样式元素。 HTML 中的样式信息和视觉指令将用于创建另一棵树：**渲染树**。
+渲染树包含具有视觉属性（如颜色和尺寸）的矩形。 矩形以正确的顺序显示在屏幕上。
 
-The next stage is **painting**-the render tree will be traversed and each node will be painted using the UI backend layer.
+在构建渲染树之后，它会经历一个**“布局”**过程。 这意味着为每个节点提供它应该出现在屏幕上的确切坐标。
 
-It's important to understand that this is a gradual process. For better user experience, the rendering engine will try to display contents on the screen as soon as possible. It will not wait until all HTML is parsed before starting to build and layout the render tree. Parts of the content will be parsed and displayed, while the process continues with the rest of the contents that keeps coming from the network.
+下一阶段是**绘图**——将遍历渲染树并使用 UI 后端层绘制每个节点。
 
-Given below is Webkit's flow:
+重要的是要了解这是一个渐进的过程。 为了更好的用户体验，渲染引擎会尝试尽快将内容显示在屏幕上。 它不会等到所有 HTML 都被解析后才开始构建和布局渲染树。 部分内容将被解析和显示，同时继续处理来自网络的其余内容。
+
+下面给出的是 Webkit 的流程：
 
 <p align="center">
   <img src="img/webkitflow.png" alt="Webkit main flow"/>
 </p>
 
-## Parsing Basics
 
-**Parsing:** Translating the document to a structure the code can use. The result of parsing is usually a tree of nodes that represent the structure of the document.
+## 解析(parsing)基础
 
-**Grammar:** Parsing is based on the syntax rules the document obeys: the language or format it was written in. Every format you can parse must have deterministic grammar consisting of vocabulary and syntax rules. It is called a **context free grammar**.
+**解析：** 将文档转换为代码可以使用的结构。 解析的结果通常是代表文档结构的节点树。
 
-Parsing can be separated into two sub processes: lexical analysis and syntax analysis.
+**语法：** 解析基于文档遵循的语法规则：编写它的语言或格式。您可以解析的每种格式都必须具有由词汇和语法规则组成的确定性语法。 它被称为**上下文无关文法**。
 
-**Lexical analysis:** The process of breaking the input into tokens. Tokens are the language vocabulary: the collection of valid building blocks.
+解析可以分为两个子过程：词法分析和句法分析。
 
-**Syntax analysis:** The applying of the language syntax rules.
+**词法分析：**将输入分解为标记的过程。 标记是语言词汇：有效构建块的集合。
 
-Parsers usually divide the work between two components: the lexer (sometimes called tokenizer) that is responsible for breaking the input into valid tokens, and the parser that is responsible for constructing the parse tree by analyzing the document structure according to the language syntax rules. The lexer knows how to strip irrelevant characters like white spaces and line breaks.
+**语法分析：**语言语法规则的应用。
+
+解析器通常将工作分为两个部分：负责将输入分解为有效标记的词法分析器（有时称为分词器），以及负责根据语言语法规则分析文档结构来构建解析树的解析器。 词法分析器知道如何去除不相关的字符，如空格和换行符。
 
 <p align="center">
   <img src="img/image011.png" alt="Source document to parse tree"/>
 </p>
 
-The parsing process is iterative. The parser will usually ask the lexer for a new token and try to match the token with one of the syntax rules. If a rule is matched, a node corresponding to the token will be added to the parse tree and the parser will ask for another token.
 
-If no rule matches, the parser will store the token internally, and keep asking for tokens until a rule matching all the internally stored tokens is found. If no rule is found then the parser will raise an exception. This means the document was not valid and contained syntax errors.
+解析过程是迭代的。 解析器通常会向词法分析器询问一个新的标记，并尝试将该标记与其中一个语法规则相匹配。 如果一条规则被匹配，一个与该标记对应的节点将被添加到解析树中，解析器将请求另一个标记。
 
-The job of the HTML parser is to parse the HTML markup into a parse tree. HTML definition is in a DTD (Document Type Definition) format. This format is used to define languages of the SGML family. The format contains definitions for all allowed elements, their attributes and hierarchy. As we saw earlier, the HTML DTD doesn't form a context free grammar.
+如果没有规则匹配，解析器将在内部存储标记，并不断请求标记，直到找到匹配所有内部存储标记的规则。 如果未找到规则，则解析器将引发异常。 这意味着该文档无效并且包含语法错误。
 
-HTML parsing algorithm consists of two stages: tokenization and tree construction.
+HTML 解析器的工作是将 HTML 标记解析为解析树。 HTML 定义采用 DTD（文档类型定义Document Type Definition）格式。 此格式用于定义 SGML 家族的语言。 该格式包含所有允许的元素、它们的属性和层次结构的定义。 正如我们之前看到的，HTML DTD 没有形成上下文无关语法。
 
-**Tokenization** is the lexical analysis, parsing the input into tokens. Among HTML tokens are start tags, end tags, attribute names and attribute values. The tokenizer recognizes the token, gives it to the tree constructor, and consumes the next character for recognizing the next token, and so on until the end of the input.
+HTML 解析算法包括两个阶段：标记化和树构造。
+
+**标记化**是词法分析，将输入解析为标记。 HTML 标记包括开始标记、结束标记、属性名称和属性值。 tokenizer 识别 token，将其交给树构造函数，并使用下一个字符来识别下一个 token，依此类推，直到输入结束。
 
 <p align="center">
   <img src="img/image017.png" alt="HTML parsing flow"/>
 </p>
 
-## DOM Tree
 
-The output tree (the "parse tree") is a tree of DOM element and attribute nodes. DOM is short for Document Object Model. It is the object presentation of the HTML document and the interface of HTML elements to the outside world like JavaScript. The root of the tree is the "Document" object.
+## DOM 树
 
-The DOM has an almost one-to-one relation to the markup. For example:
+输出树（“解析树”）是 DOM 元素和属性节点的树。 DOM 是文档对象模型(Document Object Model)的缩写。 它是 HTML 文档的对象表示，是 HTML 元素与 JavaScript 一样对外的接口。 树的根是“文档”对象。
+
+DOM 与标记几乎是一对一的关系。 例如：
 
 ```html
 <html>
@@ -359,62 +371,64 @@ The DOM has an almost one-to-one relation to the markup. For example:
 </html>
 ```
 
-This markup would be translated to the following DOM tree:
+此标记将被转换为以下 DOM 树：
 
 <p align="center">
   <img src="img/image015.png" alt="DOM Tree"/>
 </p>
 
-### Why is the DOM slow?
 
-The short answer is that the DOM is not slow. Adding & removing a DOM node is a few pointer swaps, not much more than setting a property on the JS object.
+### 为什么 DOM 很慢？
 
-However, layout is slow. When you touch the DOM in any way, you set a dirty bit on the whole tree that tells the browser it needs to figure out where everything goes again. When JS hands control back to the browser, it invokes its layout algorithm (or more technically, it invokes its CSS recalc algorithm, then layout, then repaint, then re-compositing) to redraw the screen. The layout algorithm is quite complex - read the CSS spec to understand some of the rules - and that means it often has to make non-local decisions.
+简短的回答是 DOM 并不慢。 添加和删除 DOM 节点只是一些指针交换，只不过是在 JS 对象上设置一个属性。
 
-Worse, layout is triggered synchronously by accessing certain properties. Among those are getComputedStyleValue(), getBoundingClientWidth(), .offsetWidth, .offsetHeight, etc, which makes them stupidly easy to run into. Full list is [here](https://gist.github.com/paulirish/5d52fb081b3570c81e3a).
-Because of this, a lot of Angular and JQuery code is stupidly slow. One layout will blow your entire frame budget on a mobile device. When I measured Google Instant c. 2013, it caused 13 layouts in one query, and locked up the screen for nearly 2 seconds on a mobile device. (It's since been sped up.)
+但是，布局(layout)很慢。 当您以任何方式接触 DOM 时，您都会在整棵树上设置一个脏位，告诉浏览器它需要重新弄清楚一切都去哪里了。 当 JS 将控制权交还给浏览器时，它会调用其布局算法（或者更专业地说，它会调用其 CSS 重新计算算法，然后进行布局，然后重新绘制，然后重新合成）以重新绘制屏幕。 布局算法非常复杂 - 阅读 CSS 规范以了解一些规则 - 这意味着它通常必须做出非局部决策。
 
-React doesn't help speed up layout - if you want butter-smooth animations on a mobile web browser, you need to resort to other techniques like limiting everything you do in a frame to operations that can be performed on the GPU. But what it does do is ensure that there is at most one layout performed each time you update the state of the page. That's often quite an improvement on the status quo.
+更糟糕的是，布局是通过访问某些属性同步触发的。 其中包括 getComputedStyleValue()、getBoundingClientWidth()、.offsetWidth、.offsetHeight 等，这使得它们非常容易撞上。 完整列表在 [此处](https://gist.github.com/paulirish/5d52fb081b3570c81e3a)。
+正因为如此，很多 Angular 和 JQuery 代码都非常慢。 一种布局将耗尽您在移动设备上的整个框架预算。 当我测试 Google Instant c 2013 时。 它在一次查询中导致了13个布局，在移动设备上锁屏近2秒。 （此后已加快速度。）
 
-## Render Tree
+React 无助于加速布局——如果你想在移动网络浏览器上获得流畅的动画，你需要求助于其他技术，比如将你在一个帧中所做的一切限制为可以在 GPU 上执行的操作。 但真正有效的是确保每次更新页面状态时最多执行一个布局。 那经常对现状有相当大的改善。
 
-While the DOM tree is being constructed, the browser constructs another tree, the render tree. This tree is of visual elements in the order in which they will be displayed. It is the visual representation of the document. The purpose of this tree is to enable painting the contents in their correct order.
+## 渲染树
 
-A renderer knows how to lay out and paint itself and its children. Each renderer represents a rectangular area usually corresponding to a node's CSS box.
+在构建 DOM 树的同时，浏览器会构建另一棵树，即渲染树。 这棵树是按显示顺序排列的视觉元素。 它是文档的可视化表示。 这棵树的目的是能够以正确的顺序绘制内容。
 
-## Render tree's relation to the DOM tree
+渲染器知道如何布局和绘制自身及其子项。 每个渲染器代表一个矩形区域，通常对应于节点的 CSS box。
 
-The renderers correspond to DOM elements, but the relation is not one to one. Non-visual DOM elements will not be inserted in the render tree. An example is the "head" element. Also elements whose display value was assigned to "none" will not appear in the tree (whereas elements with "hidden" visibility will appear in the tree).
+## 渲染树与 DOM 树的关系
 
-There are DOM elements which correspond to several visual objects. These are usually elements with complex structure that cannot be described by a single rectangle. For example, the "select" element has three renderers: one for the display area, one for the drop down list box and one for the button. Also when text is broken into multiple lines because the width is not sufficient for one line, the new lines will be added as extra renderers.
+渲染器对应于 DOM 元素，但不是一对一的关系。 非可视化的 DOM 元素不会被插入到渲染树中。 一个例子是“head”元素。 显示值被分配为“none”的元素也不会出现在树中（而具有“hidden”可见性的元素将出现在树中）。
 
-Some render objects correspond to a DOM node but not in the same place in the tree. Floats and absolutely positioned elements are out of flow, placed in a different part of the tree, and mapped to the real frame. A placeholder frame is where they should have been.
+有对应于多个可视对象的 DOM 元素。 这些通常是具有复杂结构的元素，无法用单个矩形来描述。 例如，“select”元素有三个渲染器：一个用于显示区域，一个用于下拉列表框，一个用于按钮。 此外，当文本因一行的宽度不够而被分成多行时，新行将作为额外的渲染器添加。
+
+一些渲染对象对应于一个 DOM 节点，但不在树中的同一位置。 浮动元素和绝对定位元素脱离主流，被放置在树的不同部分，并映射到真实的框架。 占位符框架是他们应该在的地方。
 
 <p align="center">
   <img src="img/image025.png" alt="The render tree and the corresponding DOM tree"/>
 </p>
 
-In WebKit the process of resolving the style and creating a renderer is called "attachment". Every DOM node has an "attach" method. Attachment is synchronous, node insertion to the DOM tree calls the new node "attach" method.
 
-Building the render tree requires calculating the visual properties of each render object. This is done by calculating the style properties of each element. The style includes style sheets of various origins, inline style elements and visual properties in the HTML (like the "bgcolor" property).The later is translated to matching CSS style properties.
+在 WebKit 中，解析样式和创建渲染器的过程称为“attachment”。 每个 DOM 节点都有一个“attach”方法。 attachment是同步的，节点插入 DOM 树调用新节点的“attach”方法。
 
-## CSS Parsing
+构建渲染树需要计算每个渲染对象的视觉属性。 这是通过计算每个元素的样式属性来完成的。 样式包括各种来源的样式表、内联样式元素和 HTML 中的视觉属性（如“bgcolor”属性）。后者会被翻译来匹配 CSS 样式属性。
 
-CSS Selectors are matched by browser engines from right to left. Keep in mind that when a browser is doing selector matching it has one element (the one it's trying to determine style for) and all your rules and their selectors and it needs to find which rules match the element. This is different from the usual jQuery thing, say, where you only have one selector and you need to find all the elements that match that selector.
+## CSS 解析
 
-A selector's specificity is calculated as follows:
+CSS 选择器(selector)由浏览器引擎从右到左匹配。 请记住，当浏览器进行选择器匹配时，它有一个元素（它试图为其确定样式的那个）和所有规则及其选择器，它需要找到哪些规则与该元素匹配。 这与通常的 jQuery 不同，例如，您只有一个选择器，您需要找到与该选择器匹配的所有元素。
 
-* Count 1 if the declaration it is from is a 'style' attribute rather than a rule with a selector, 0 otherwise (= a)
-* Count the number of ID selectors in the selector (= b)
-* Count the number of class selectors, attributes selectors, and pseudo-classes in the selector (= c)
-* Count the number of element names and pseudo-elements in the selector (= d)
-* Ignore the universal selector
+选择器的确定是这样计算的：
 
-Concatenating the three numbers a-b-c-d (in a number system with a large base) gives the specificity. The number base you need to use is defined by the highest count you have in one of a, b, c and d.
+* 如果它来自的声明是“style”属性而不是带有选择器的规则，则计数 1，否则计数 0 (= a)
+* 统计选择器中ID选择器的个数(= b)
+* 统计选择器中类选择器、属性选择器、伪类(class selectors, attributes selectors, and pseudo-classes)的个数(= c)
+* 统计选择器中元素名和伪元素的个数(=d)
+* 忽略通用选择器
 
-Examples:
+连接三个数字 a-b-c-d（在具有大基数的数字系统中）给出了特异性。 您需要使用的基数由您在 a、b、c 和 d 之一中的最高计数定义。
 
-``` txt
+例子：
+
+``` 文本文件
 *               /* a=0 b=0 c=0 -> specificity =   0 */
 LI              /* a=0 b=0 c=1 -> specificity =   1 */
 UL LI           /* a=0 b=0 c=2 -> specificity =   2 */
@@ -426,69 +440,69 @@ LI.red.level    /* a=0 b=2 c=1 -> specificity =  21 */
 #s12:not(FOO)   /* a=1 b=0 c=1 -> specificity = 101 */
 ```
 
-Why does the CSSOM have a tree structure? When computing the final set of styles for any object on the page, the browser starts with the most general rule applicable to that node (e.g. if it is a child of body element, then all body styles apply) and then recursively refines the computed styles by applying more specific rules - i.e. the rules “cascade down”.
+为什么 CSSOM 有树状结构？ 当计算页面上任何对象的最终样式集时，浏览器从适用于该节点的最通用规则开始（例如，如果它是 body 元素的子元素，则应用所有 body 样式），然后递归地优化计算出的样式 通过应用更具体的规则——即“向下级联(cascade down)”的规则。
 
-WebKit uses a flag that marks if all top level style sheets (including @imports) have been loaded. If the style is not fully loaded when attaching, place holders are used and it is marked in the document, and they will be recalculated once the style sheets were loaded.
+WebKit 使用一个标志来标记所有顶级样式表（包括@imports）是否已加载。 如果附加时样式未完全加载，则使用占位符并在文档中标记，一旦加载样式表将重新计算它们。
 
-## Layout
+## 布局(layout)
 
-When the renderer is created and added to the tree, it does not have a position and size. Calculating these values is called layout or reflow.
+创建渲染器并将其添加到树中时，它没有位置和大小。 计算这些值称为布局或回流(reflow)。
 
-HTML uses a flow based layout model, meaning that most of the time it is possible to compute the geometry in a single pass. Elements later 'in the flow' typically do not affect the geometry of elements that are earlier 'in the flow', so layout can proceed left-to-right, top-to-bottom through the document. The coordinate system is relative to the root frame. Top and left coordinates are used.
+HTML 使用基于流的布局模型，这意味着大多数时候可以一次计算几何图形。 “流中”较晚的元素通常不会影响“流中”较早的元素的几何形状，因此布局可以从左到右、从上到下贯穿整个文档。 这个坐标系是相对于根框架的。 使用顶部和左侧坐标。
 
-Layout is a recursive process. It begins at the root renderer, which corresponds to the <html> element of the HTML document. Layout continues recursively through some or all of the frame hierarchy, computing geometric information for each renderer that requires it.
+布局是一个递归过程。 它从根渲染器开始，对应于 HTML 文档的 <html> 元素。 布局通过部分或全部帧层次结构递归地继续，为需要它的每个渲染器计算几何信息。
 
-The position of the root renderer is 0,0 and its dimensions are the viewport–the visible part of the browser window. All renderers have a "layout" or "reflow" method, each renderer invokes the layout method of its children that need layout.
+根渲染器的位置是 0,0，它的尺寸是视口(viewpoint)——浏览器窗口的可见部分。 所有渲染器都有一个“layout”或“reflow”方法，每个渲染器调用其需要布局的子级的布局方法。
 
-In order not to do a full layout for every small change, browsers use a "dirty bit" system. A renderer that is changed or added marks itself and its children as "dirty": needing layout. There are two flags: "dirty", and "children are dirty" which means that although the renderer itself may be OK, it has at least one child that needs a layout.
+为了不为每一个小的变化做一个完整的布局，浏览器使用了一个“脏位”系统。 更改或添加的渲染器将其自身及其子项标记为“脏”：需要布局。 有两个标志：“dirty”和“children are dirty”，这意味着尽管渲染器本身可能没问题，但它至少有一个子项需要布局。
 
-The layout usually has the following pattern:
+布局通常具有以下模式：
 
-- Parent renderer determines its own width.
-- Parent goes over children and:
-    - Place the child renderer (sets its x and y).
-    - Calls child layout if needed–they are dirty or we are in a global layout, or for some other reason–which calculates the child's height.
-- Parent uses children's accumulative heights and the heights of margins and padding to set its own height–this will be used by the parent renderer's parent.
-- Sets its dirty bit to false.
+- 父渲染器决定自己的宽度。
+- 父母越过孩子并且：
+   - 放置子渲染器（设置它的 x 和 y）。
+   - 如果需要调用子布局——它们是脏的或者我们处于全局布局中，或者出于某些其他原因——计算子布局的高度。
+- Parent 使用 children 的累积高度和 margins 和 padding 的高度来设置自己的高度——这将被 parent renderer 的 parent 使用。
+- 将其脏位设置为false。
 
-Also note, layout thrashing is where a web browser has to reflow or repaint a web page many times before the page is ‘loaded’. In the days before JavaScript’s prevalence, websites were typically reflowed and painted just once, but these days it is increasingly common for JavaScript to run on page load which can cause modifications to the DOM and therefore extra reflows or repaints. Depending on the number of reflows and the complexity of the web page, there is potential to cause significant delay when loading the page, especially on lower powered devices such as mobile phones or tablets.
+另请注意，布局抖动(layout thrashing)是指 Web 浏览器在“加载”页面之前必须多次回流或重新绘制网页。 在 JavaScript 流行之前的日子里，网站通常只回流和绘制一次，但现在越来越普遍的是，JavaScript 在页面加载时运行，这可能会导致对 DOM 的修改，从而导致额外的回流或重绘。 根据回流次数和网页的复杂性，加载页面时可能会造成严重延迟，尤其是在手机或平板电脑等低功率设备上。
 
-## Painting
+## 绘图(painting)
 
-In the painting stage, the render tree is traversed and the renderer's "paint()" method is called to display content on the screen. Painting uses the UI infrastructure component.
+在绘图阶段，遍历渲染树，调用渲染器的“paint()”方法在屏幕上显示内容。 绘图使用 UI 基础结构组件。
 
-Like layout, painting can also be global–the entire tree is painted–or incremental. In incremental painting, some of the renderers change in a way that does not affect the entire tree. The changed renderer invalidates its rectangle on the screen. This causes the OS to see it as a "dirty region" and generate a "paint" event. The OS does it cleverly and coalesces several regions into one.
+像布局一样，绘制也可以是全局的——整个树都被绘制——或增量的。 在增量绘图中，一些渲染器的变化不会影响整个树。 更改后的渲染器使其在屏幕上的矩形无效。 这会导致操作系统将其视为“脏区”并生成“绘制”事件。 操作系统巧妙地做到了这一点，并将多个区域合并为一个区域。
 
-Before repainting, WebKit saves the old rectangle as a bitmap. It then paints only the delta between the new and old rectangles. The browsers try to do the minimal possible actions in response to a change. So changes to an element's color will cause only repaint of the element. Changes to the element position will cause layout and repaint of the element, its children and possibly siblings. Adding a DOM node will cause layout and repaint of the node. Major changes, like increasing font size of the "html" element, will cause invalidation of caches, relayout and repaint of the entire tree.
+在重新绘制之前，WebKit 将旧矩形保存为位图。 然后它只绘制新旧矩形之间的增量。 浏览器会尝试执行最少的可能操作来响应更改。 所以改变元素的颜色只会导致元素的重绘。 元素位置的更改将导致元素及其子元素和可能的兄弟元素的布局和重绘。 添加 DOM 节点将导致节点的布局和重绘。 重大更改，如增加“html”元素的字体大小，将导致缓存失效、重新布局和重新绘制整个树。
 
-There are three different positioning schemes:
+存在三种不同的定位方案：
 
-* **Normal:** the object is positioned according to its place in the document. This means its place in the render tree is like its place in the DOM tree and laid out according to its box type and dimensions
-* **Float:** the object is first laid out like normal flow, then moved as far left or right as possible
-* **Absolute:** the object is put in the render tree in a different place than in the DOM tree
+* **普通：**对象根据其在文档中的位置定位。 这意味着它在渲染树中的位置就像它在 DOM 树中的位置一样，并根据其框类型和尺寸进行布局
+* **浮动：**对象首先像正常流一样布局，然后尽可能向左或向右移动
+* **绝对：**对象在渲染树中的位置不同于 DOM 树中的位置
 
-The positioning scheme is set by the "position" property and the "float" attribute.
+定位方案由“position”属性和“float”属性设置。
 
-- static and relative cause a normal flow
-- absolute and fixed cause absolute positioning
+- 静态和相对导致正常流动
+- absolute 和 fixed 导致绝对定位
 
-In static positioning no position is defined and the default positioning is used. In the other schemes, the author specifies the position: top, bottom, left, right.
+在静态定位中，没有定义任何位置，而是使用默认定位。 在其他方案中，作者指定了位置：top, bottom, left, right。
 
-**Layers** are specified by the z-index CSS property. It represents the third dimension of the box: its position along the "z axis".
+**图层(layers)** 由 z-index CSS 属性指定。 它表示盒子的第三维：它沿“z 轴”的位置。
 
-The boxes are divided into stacks (called stacking contexts). In each stack the back elements will be painted first and the forward elements on top, closer to the user. In case of overlap the foremost element will hide the former element. The stacks are ordered according to the z-index property. Boxes with "z-index" property form a local stack.
+这些框被分成堆栈（称为堆栈上下文 stacking contexts）。 在每个堆栈中，后面的元素将首先绘制，前面的元素在顶部，更靠近用户。 在重叠的情况下，最前面的元素将隐藏前一个元素。 堆栈根据 z-index 属性排序。 具有“z-index”属性的框形成本地堆栈。
 
-## Trivia
+## 冷知识(trivia)
 
-### The birth of the web
+### 网络的诞生
 
-Tim Berners-Lee, a British scientist at CERN, invented the World Wide Web (WWW) in 1989. The web was originally conceived and developed to meet the demand for automatic information-sharing between scientists in universities and institutes around the world.
+CERN 的英国科学家 Tim Berners-Lee 于 1989 年发明了万维网 (World Wide Web, WWW)。Web 最初的构想和开发是为了满足世界各地大学和研究所的科学家之间自动共享信息的需求。
 
-The first website at CERN - and in the world - was dedicated to the World Wide Web project itself and was hosted on Berners-Lee's NeXT computer. The website described the basic features of the web; how to access other people's documents and how to set up your own server. The NeXT machine - the original web server - is still at CERN. As part of the project to restore [the first website](http://info.cern.ch/), in 2013 CERN reinstated the world's first website to its original address.
+CERN 的第一个网站——也是世界上的第一个网站——专门用于万维网项目本身，并托管在 Berners-Lee 的 NeXT 计算机上。 该网站描述了网络的基本特征； 如何交流处理其他人的文档以及如何设置自己的服务器。 NeXT 机器——最初的网络服务器——仍在 CERN。 作为恢复[第一个网站](http://info.cern.ch/) 项目的一部分，CERN 在 2013 年将世界上第一个网站恢复到其原始地址。
 
-On 30 April 1993, CERN put the World Wide Web software in the public domain. CERN made the next release available with an open license, as a more sure way to maximize its dissemination. Through these actions, making the software required to run a web server freely available, along with a [basic browser](http://line-mode.cern.ch/) and a library of code, the web was allowed to flourish.
+1993 年 4 月 30 日，CERN 将万维网软件置于公共领域。 CERN 以开放许可的方式发布了下一个版本，作为一种更可靠的方式来最大限度地传播它。 通过这些行动，免费提供运行网络服务器所需的软件以及[基本浏览器](http://line-mode.cern.ch/) 和代码库，网络得以蓬勃发展。
 
-*More reading:*
+*更多阅读：*
 
 [What really happens when you navigate to a URL](http://igoro.com/archive/what-really-happens-when-you-navigate-to-a-url/)
 
@@ -503,3 +517,4 @@ On 30 April 1993, CERN put the World Wide Web software in the public domain. CER
 [Constructing the Object Model](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/constructing-the-object-model)
 
 [How the Web Works: A Primer for Newcomers to Web Development (or anyone, really)](https://medium.freecodecamp.com/how-the-web-works-a-primer-for-newcomers-to-web-development-or-anyone-really-b4584e63585c#.7l3tokoh1)
+

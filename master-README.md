@@ -37,7 +37,6 @@ When you just press "g", the browser receives the event and the entire auto-comp
 To pick a zero point, let's choose the Enter key on the keyboard hitting the bottom of its range. At this point, an electrical circuit specific to the enter key is closed (either directly or capacitively). This allows a small amount of current to flow into the logic circuitry of the keyboard, which scans the state of each key switch, debounces the electrical noise of the rapid intermittent closure of the switch, and converts it to a keycode integer, in this case 13. The keyboard controller then encodes the keycode for transport to the computer. This is now almost universally over a Universal Serial Bus (USB) or Bluetooth connection.
 
 In the case of the USB keyboard:
-
 * The keycode generated is stored by internal keyboard circuitry memory in a register called "endpoint".
 * The host USB controller polls that "endpoint" every ~10ms, so it gets the keycode value stored on it.
 * This value goes to the USB SIE (Serial Interface Engine) sent at a maximum speed of 1.5 Mb/s (USB 2.0).
@@ -45,7 +44,6 @@ In the case of the USB keyboard:
 * The value of the key is then passed into the operating system's hardware abstraction layer.
 
 In the case of touch screen keyboards:
-
 * When the user puts their finger on a modern capacitive touch screen, a tiny amount of current gets transferred to the finger. This completes the circuit through the electrostatic field of the conductive layer and creates a voltage drop at that point on the screen. The screen controller then raises an interrupt reporting the coordinate of the 'click'.
 * Then the mobile OS notifies the current focused application of a click event in one of its GUI elements (which now is the virtual keyboard application buttons).
 * The virtual keyboard can now raise a software interrupt for sending a 'key pressed' message back to the OS.
@@ -54,7 +52,6 @@ In the case of touch screen keyboards:
 ## Parse the URL
 
 The browser now has the following information contained in the URL (Uniform Resource Locator):
-
 * Protocol "http": Use 'Hyper Text Transfer Protocol'
 * Resource "/": Retrieve main (index) page
 
@@ -85,7 +82,6 @@ Here is a diagram of what a recursive DNS search looks like:
 <p align="center">
   <img src="img/Example_of_an_iterative_DNS_resolver.svg" alt="Recursive DNS search"/>
 </p>
-
 
 One worrying thing about DNS is that the entire domain like wikipedia.org or facebook.com seems to map to a single IP address. Fortunately, there are ways of mitigating the bottleneck:
 
@@ -140,15 +136,13 @@ After parsing the HTML, the web browser (and server) repeats this process for ev
 If the HTML referenced a resource on a different domain than www.google.com, the web browser goes back to the steps involved in resolving the other domain, and follows all steps up to this point for that domain. The Host header in the request will be set to the appropriate server name instead of google.com.
 
 **Gotcha:**
-
 * The trailing slash in the URL “[http://facebook.com/](http://facebook.com/)” is important. In this case, the browser can safely add the slash. For URLs of the form http://example.com/folderOrFile, the browser cannot automatically add a slash, because it is not clear whether folderOrFile is a folder or a file. In such cases, the browser will visit the URL without the slash, and the server will respond with a redirect, resulting in an unnecessary roundtrip.
 * The server might respond with a 301 Moved Permanently response to tell the browser to go to “[http://www.google.com/](http://www.google.com/)” instead of “[http://google.com/](http://google.com/)”. There are interesting reasons why the server insists on the redirect instead of immediately responding with the web page that the user wants to see.
-  One reason has to do with search engine rankings. See, if there are two URLs for the same page, say http://www.vasanth.com/ and http://vasanth.com/, search engines may consider them to be two different sites, each with fewer incoming links and thus a lower ranking. Search engines understand permanent redirects (301), and will combine the incoming links from both sources into a single ranking.
-  Also, multiple URLs for the same content are not cache-friendly. When a piece of content has multiple names, it will potentially appear multiple times in caches.
+One reason has to do with search engine rankings. See, if there are two URLs for the same page, say http://www.vasanth.com/ and http://vasanth.com/, search engines may consider them to be two different sites, each with fewer incoming links and thus a lower ranking. Search engines understand permanent redirects (301), and will combine the incoming links from both sources into a single ranking.
+Also, multiple URLs for the same content are not cache-friendly. When a piece of content has multiple names, it will potentially appear multiple times in caches.
 
 **Note:**
 HTTP response starts with the returned status code from the server. Following is a very brief summary of what a status code denotes:
-
   * 1xx indicates an informational message only
   * 2xx indicates success of some kind
   * 3xx redirects the client to another URL
@@ -162,10 +156,10 @@ The HTTPD (HTTP Daemon) server is the one handling the requests/responses on the
 * The HTTPD (HTTP Daemon) receives the request.
 
 * The server breaks down the request to the following parameters:
-  * HTTP Request Method (either GET, POST, HEAD, PUT and DELETE). In the case of a URL entered directly into the address bar, this will be GET.
-  * Domain, in this case - google.com.
-  * Requested path/page, in this case - / (as no specific path/page was requested, / is the default path).
-  * The server verifies that there is a Virtual Host configured on the server that corresponds with google.com.
+    * HTTP Request Method (either GET, POST, HEAD, PUT and DELETE). In the case of a URL entered directly into the address bar, this will be GET.
+    * Domain, in this case - google.com.
+    * Requested path/page, in this case - / (as no specific path/page was requested, / is the default path).
+    * The server verifies that there is a Virtual Host configured on the server that corresponds with google.com.
 
 * The server verifies that google.com can accept GET requests.
 
@@ -220,7 +214,6 @@ Notice the header that sets Content-Type to text/html. The header instructs the 
 ## Behind the scenes of the Browser
 
 Once the server supplies the resources (HTML, CSS, JS, images, etc.) to the browser it undergoes the below process:
-
 * Parsing - HTML, CSS, JS
 * Rendering - Construct DOM Tree → Render Tree → Layout of Render Tree → Painting the render tree
 
@@ -244,7 +237,6 @@ Once the server supplies the resources (HTML, CSS, JS, images, etc.) to the brow
   <img src="img/layers.png" alt="Browser Components"/>
 </p>
 
-
 Let’s start, with the simplest possible case: a plain HTML page with some text and a single image. What does the browser need to do to process this simple page?
 
 1. **Conversion:** the browser reads the raw bytes of the HTML off the disk or network and translates them to individual characters based on specified encoding of the file (e.g. UTF-8).
@@ -259,7 +251,6 @@ Let’s start, with the simplest possible case: a plain HTML page with some text
   <img src="img/full-process.png" alt="DOM Construction Process"/>
 </p>
 
-
 The final output of this entire process is the Document Object Model, or the “DOM” of our simple page, which the browser uses for all further processing of the page.
 
 Every time the browser has to process HTML markup it has to step through all of the steps above: convert bytes to characters, identify tokens, convert tokens to nodes, and build the DOM tree. This entire process can take some time, especially if we have a large amount of HTML to process.
@@ -268,21 +259,20 @@ Every time the browser has to process HTML markup it has to step through all of 
   <img src="img/dom-timeline.png" alt="Tracing DOM construction in DevTools"/>
 </p>
 
-
 If you open up Chrome DevTools and record a timeline while the page is loaded, you can see the actual time taken to perform this step — in the example above, it took us ~5ms to convert a chunk of HTML bytes into a DOM tree. Of course, if the page was larger, as most pages are, this process might take significantly longer. You will see in our future sections on creating smooth animations that this can easily become your bottleneck if the browser has to process large amounts of HTML.
 
 ## Rendering Engine
 
 A rendering engine is a software component that takes marked up content (such as HTML, XML, image files, etc.) and formatting information (such as CSS, XSL, etc.) and displays the formatted content on the screen.
 
-| Browser           |          Engine           |
-| ----------------- | :-----------------------: |
-| Chrome            | Blink (a fork of WebKit)  |
-| Firefox           |           Gecko           |
-| Safari            |          Webkit           |
-| Opera             |  Blink (Presto if < v15)  |
-| Internet Explorer |          Trident          |
-| Edge              | Blink (EdgeHTML if < v79) |
+|Browser           |Engine                       |
+|----------------- |:---------------------------:|
+|Chrome            | Blink (a fork of WebKit)    |
+|Firefox           | Gecko                       |
+|Safari            | Webkit                      |
+|Opera             | Blink (Presto if < v15)     |
+|Internet Explorer | Trident                     |
+|Edge              | Blink (EdgeHTML if < v79)   |
 
 WebKit is an open source rendering engine which started as an engine for the Linux platform and was modified by Apple to support Mac and Windows.
 
@@ -303,7 +293,6 @@ After that the basic flow of the rendering engine is:
   <img src="img/flow.png" alt="Rendering engine basic flow"/>
 </p>
 
-
 The rendering engine will start parsing the HTML document and convert elements to [DOM](http://domenlightenment.com/) nodes in a tree called the **"content tree"**.
 
 The engine will parse the style data, both in external CSS files and in style elements. Styling information together with visual instructions in the HTML will be used to create another tree: the **render tree**.
@@ -320,7 +309,6 @@ Given below is Webkit's flow:
 <p align="center">
   <img src="img/webkitflow.png" alt="Webkit main flow"/>
 </p>
-
 
 ## Parsing Basics
 
@@ -340,7 +328,6 @@ Parsers usually divide the work between two components: the lexer (sometimes cal
   <img src="img/image011.png" alt="Source document to parse tree"/>
 </p>
 
-
 The parsing process is iterative. The parser will usually ask the lexer for a new token and try to match the token with one of the syntax rules. If a rule is matched, a node corresponding to the token will be added to the parse tree and the parser will ask for another token.
 
 If no rule matches, the parser will store the token internally, and keep asking for tokens until a rule matching all the internally stored tokens is found. If no rule is found then the parser will raise an exception. This means the document was not valid and contained syntax errors.
@@ -354,7 +341,6 @@ HTML parsing algorithm consists of two stages: tokenization and tree constructio
 <p align="center">
   <img src="img/image017.png" alt="HTML parsing flow"/>
 </p>
-
 
 ## DOM Tree
 
@@ -378,7 +364,6 @@ This markup would be translated to the following DOM tree:
 <p align="center">
   <img src="img/image015.png" alt="DOM Tree"/>
 </p>
-
 
 ### Why is the DOM slow?
 
@@ -408,7 +393,6 @@ Some render objects correspond to a DOM node but not in the same place in the tr
 <p align="center">
   <img src="img/image025.png" alt="The render tree and the corresponding DOM tree"/>
 </p>
-
 
 In WebKit the process of resolving the style and creating a renderer is called "attachment". Every DOM node has an "attach" method. Attachment is synchronous, node insertion to the DOM tree calls the new node "attach" method.
 
@@ -462,8 +446,8 @@ The layout usually has the following pattern:
 
 - Parent renderer determines its own width.
 - Parent goes over children and:
-  - Place the child renderer (sets its x and y).
-  - Calls child layout if needed–they are dirty or we are in a global layout, or for some other reason–which calculates the child's height.
+    - Place the child renderer (sets its x and y).
+    - Calls child layout if needed–they are dirty or we are in a global layout, or for some other reason–which calculates the child's height.
 - Parent uses children's accumulative heights and the heights of margins and padding to set its own height–this will be used by the parent renderer's parent.
 - Sets its dirty bit to false.
 
@@ -518,4 +502,4 @@ On 30 April 1993, CERN put the World Wide Web software in the public domain. CER
 
 [Constructing the Object Model](https://developers.google.com/web/fundamentals/performance/critical-rendering-path/constructing-the-object-model)
 
-[How the Web Works: A Primer for Newcomers to Web Development (or anyone, really)](
+[How the Web Works: A Primer for Newcomers to Web Development (or anyone, really)](https://medium.freecodecamp.com/how-the-web-works-a-primer-for-newcomers-to-web-development-or-anyone-really-b4584e63585c#.7l3tokoh1)
